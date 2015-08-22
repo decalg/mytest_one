@@ -1,0 +1,17 @@
+/*
+this is a test for math include "+ - * /"
+*/
+#include<stdio.h>
+#include<iostream>
+
+int main(){
+  int a,b;
+  a=b=sum=sub=mul=div=0;
+  std::cin>>a>>b;
+  std::cout<<"a+b="<<a+b<<" a-b="<<a-b<<" a*b="<<a*b;
+  if(b)
+    std::cout<<" a/b="<<a/b<<endl;
+  else
+    std::cout<<" a/b is error!"<<endl;
+  return 0;
+}
