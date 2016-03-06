@@ -1,0 +1,224 @@
+// huawei.cpp : 定义控制台应用程序的入口点。
+//
+
+#include "stdafx.h"
+
+using namespace std;
+
+struct Node{
+	int node;
+};
+
+struct Link{
+	int linkid;
+	Node sourcenode;
+	Node destnode;
+	int cost;
+};
+
+struct Graph{
+	list<Node> nlist;
+};
+
+
+const char *infilename = "inputgraph.csv";
+const char *inputfile = "input.csv";
+const int MAX_NODES = 600;
+const int MAX_NODEV = 50;
+
+//计算所有以snode为源节点的目的节点
+bool calculation(const Node & snode,const list<Link> & llink,stack<Node> & temp);
+//判断snode是否存在（确定是否成环）
+bool isloop(const Node & snode,const list<Node> & lnode);
+//判断源节点列表是否完全包含要求的节点列表
+bool isanswer(const list<Node> & snodes, const list<Node> & vnodes);
+//打印当前sournodes列表节点信息
+void printsnodes(const list<Node> & lnodes);
+
+int _tmain(int argc, _TCHAR* argv[])
+{
+	using std::cout;
+	using std::endl;
+	using std::cin;
+
+	//定义主要变量及容器
+	list<Link> linklist;				//用于保存边集E
+	Node sournode,destnode,currsnode;	//保存源节点和目的节点和当前的源节点
+	list<Node> vnodes;					//保存V'节点集
+	stack< stack <Node> > nodestack;	//用于保存以源节点起点的所有有向线段的对端节点集的栈
+	list <Node> sourecenodes;			//存储源节点列表
+	stack <Node> exchangnodes;			//存储以源节点为起点的所有有向线段的对端节点的栈
+	int solution=1;						//定义解的数量
+	
+	//取出文件中的边集E，保存在list中
+	ifstream infile(infilename,ios_base::in);
+	if( !infile.is_open()){
+		cerr << "open the \""<<infilename<<"\" error."<< endl;
+		exit(EXIT_FAILURE);
+	}
+	int temp1,temp2,temp3,temp4;
+	Node stemp,dtemp;
+	Link link;
+	while(infile>>temp1)
+	{
+		infile.get();
+		(infile>>temp2).get();
+		(infile>>temp3).get();
+		(infile>>temp4).get();
+		stemp.node = temp2;
+		dtemp.node = temp3;
+		link.cost = temp4;
+		link.linkid = temp1;
+		link.sourcenode=stemp;
+		link.destnode = dtemp;
+		linklist.push_back(link);
+	}
+	infile.close();
+	
+	//取出(s,t)和V'集合，将节点集合保存在list中
+	ifstream input;
+	input.open(inputfile,ios_base::in);
+	if(!input.is_open())
+		exit(EXIT_FAILURE);	
+	(input>>temp1).get();
+	(input>>temp2).get();
+	sournode.node=temp1;
+	destnode.node=temp2;
+	while(input>>temp3)
+	{
+		input.get();
+		stemp.node=temp3;
+		vnodes.push_back(stemp);
+	}
+	input.close();
+	
+
+
+	//计算所有路径
+	currsnode.node=sournode.node;
+	calculation(currsnode,linklist,exchangnodes);
+	sourecenodes.push_back(currsnode);
+	cout << "currsnode is: "<<currsnode.node<<endl;
+	//第一次压栈，填充数据，并第一次寻找路径
+	while(!exchangnodes.empty()){		
+		//压栈操作
+		//判断exchangnode的栈顶元素是否存在源节点列表中或着等于目的节点
+		while(!exchangnodes.empty()&&(isloop(exchangnodes.top(),sourecenodes)
+			||exchangnodes.top().node==destnode.node)){
+			//若exchangnodes的栈顶元素等于目的节点，则判断源节点列表sourecenodes是否完全包含vnodes
+			if(exchangnodes.top().node==destnode.node)
+				if(isanswer(sourecenodes,vnodes)){
+					std::cout<< solution++ <<"st answer."<<endl;
+					for(auto it=sourecenodes.begin();it!=sourecenodes.end();it++)
+						cout<<(*it).node<<" ";
+					cout<<endl;
+			}
+			//出栈，提取下一个元素进行判断
+			exchangnodes.pop();
+		}
+
+		if(!exchangnodes.empty()){
+			currsnode.node=(exchangnodes.top()).node;
+			cout << "currsnode is: "<<currsnode.node<<endl;
+			exchangnodes.pop();
+			sourecenodes.push_back(currsnode);
+			//协助调试，打印相关信息
+			printsnodes(sourecenodes);
+			nodestack.push(exchangnodes);
+			while(!exchangnodes.empty())
+				exchangnodes.pop();
+			calculation(currsnode,linklist,exchangnodes);
+		}
+	}
+
+	//寻找所有可能的路径
+	while(!nodestack.empty())
+	{
+		exchangnodes=nodestack.top();
+		nodestack.pop();
+		sourecenodes.pop_back();
+		while(!exchangnodes.empty()){		
+			//压栈操作
+			while(!exchangnodes.empty()&&(isloop(exchangnodes.top(),sourecenodes)
+				||exchangnodes.top().node==destnode.node)){
+				if(exchangnodes.top().node==destnode.node)
+					if(isanswer(sourecenodes,vnodes)){
+						std::cout<< solution++ <<"st answer."<<endl;
+						for(auto it=sourecenodes.begin();it!=sourecenodes.end();it++)
+							cout<<(*it).node<<" ";
+						cout<<endl;
+				}
+				exchangnodes.pop();
+			}
+			if(!exchangnodes.empty()){
+				currsnode.node=(exchangnodes.top()).node;
+				cout << "currsnode is: "<<currsnode.node<<endl;
+				exchangnodes.pop();
+				sourecenodes.push_back(currsnode);
+				//协助调试，打印相关信息
+				printsnodes(sourecenodes);
+				nodestack.push(exchangnodes);
+				while(!exchangnodes.empty())
+					exchangnodes.pop();
+				calculation(currsnode,linklist,exchangnodes);
+			}
+		}
+	}
+
+	return 0;
+}
+
+//根据源节点，计算所有以当前源节点currsnode为源节点的目的节点，存入栈temp中
+bool calculation(const Node & currsnode,const list<Link> & llink,stack<Node> &temp)
+{
+	for(auto it=llink.begin();it!=llink.end();it++)
+	{
+		if((*it).sourcenode.node==currsnode.node)
+			temp.push((*it).destnode);
+	}
+	return true;
+}
+
+//判断新的源节点snode是否已经存在于保存旧源节点的list中
+bool isloop(const Node & snode, const list<Node> & lnode)
+{
+	if(lnode.empty())
+		return false;
+	for(auto it=lnode.begin();it!=lnode.end();it++)
+		if((*it).node==snode.node)
+			return true;
+	return false;
+}
+
+//判断源节点列表所组成的路径是否是解
+bool isanswer(const list<Node> & snodes,const list<Node> & vnodes)
+{
+	int counts1=0;
+	int counts2=0;
+	if(snodes.empty()||vnodes.empty())
+		return false;
+	else{
+		for(auto vit= vnodes.begin();vit!=vnodes.end();vit++){
+			if(counts1!=counts2)
+				break;
+			for(auto sit= snodes.begin();sit!=snodes.end();sit++)
+				if((*sit).node==(*vit).node){
+					counts1++;
+				}
+			counts2++;
+		}
+	}
+	if(counts1==vnodes.size())
+		return true;
+	else
+		return false;
+}
+
+//打印当前sournodes列表节点信息
+void printsnodes(const list<Node> & lnodes)
+{
+	cout<<"the current source node list: ";
+	for(auto it=lnodes.begin();it!=lnodes.end();it++)
+		cout<<(*it).node<<" ";
+	cout << endl;
+}
